@@ -27,13 +27,27 @@ typedef struct {
 typedef struct {
     const char* (*test_fn)();
     bool finished;
+    double time_out;
+    const char* fail_out;
 } wrapper_args;
 
 static void* test_wrapper(void* _args) {
     wrapper_args* args = (wrapper_args*)_args;
+
+    time_t begin_time, end_time;
+    time(&begin_time);
+
     const char* val = args->test_fn();
+
+    time(&end_time);
+
+    double time_exerted = difftime(end_time, begin_time);
+
     args->finished = true;
-    return (void*)val;
+    args->fail_out = val;
+    args->time_out = time_exerted;
+
+    return NULL;
 }
 
 // returns true on pass
@@ -41,49 +55,45 @@ static bool execute_test(const test_t test) {
     wrapper_args args = {
         .test_fn = test.ptr,
         .finished = false,
+        .time_out = 0.f,
+        .fail_out = NULL,
     };
 
     pthread_t test_thread;
     pthread_create(&test_thread, NULL, test_wrapper, &args);
 
-    uint8_t idx = 0;
-    uint32_t time_ms = 0;  // millisecond precision
-    uint32_t time_s = 0;
+    printf("\033[1K\033[0G");
+    printf("%s: ", test.name);
+    fflush(stdout);
 
-    do {
-        if (time_ms > 1000) {
-            printf("\033[1K\033[0G");
-            printf("%s: ", test.name);
-
-            for (uint8_t i = 0; i < time_s % 4; i++)
+    int msec = 0;
+    int ticks = 0;
+    while (!args.finished) {
+        static const struct timespec wait = {.tv_sec = 0, .tv_nsec = 1000000};
+        nanosleep(&wait, NULL);
+        msec += 1;
+        if (msec > 1000) {
+            msec %= 1000;
+            ticks += 1;
+            ticks %= 5;
+            printf("\033[1k\033[0G%s: ", test.name);
+            for (int i = 0; i < ticks; i++) {
                 printf(".");
-
-            time_s += time_ms / 1000;
-            time_ms %= 1000;
+            }
+            fflush(stdout);
         }
+    }
 
-        if (args.finished)
-            break;
+    pthread_join(test_thread, NULL);
 
-        static const struct timespec sleep_time = (struct timespec){
-            .tv_sec = 0,
-            .tv_nsec = 1000,
-        };
-
-        nanosleep(&sleep_time, NULL);
-        time_ms += 1;
-    } while (!args.finished);
-
-    const char* test_return = NULL;
-    pthread_join(test_thread, (void**)&test_return);
-
-    if (test_return == NULL)
+    if (args.fail_out == NULL)
         printf("\033[1K\033[0G%s: SUCCESS!", test.name);
     else
-        printf("\033[1K\033[0G%s: Error [\"%s\"]", test.name, test_return);
+        printf("\033[1K\033[0G%s: Error [\"%s\"]", test.name, args.fail_out);
 
-    float total_time = time_s + ((float)time_ms / 1000);
-    printf("\n\tFinished in: %.2fs\n", total_time);
+    printf("\n\tFinished in: %.2fs\n", args.time_out);
 
-    return test_return ? false : true;
+    fflush(stdout);
+
+    return args.fail_out ? false : true;
 }
