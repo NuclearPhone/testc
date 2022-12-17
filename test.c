@@ -8,6 +8,10 @@ const char* failing_test_function() {
     return "this is a fail";
 }
 
+const char* default_fail_function() {
+    return TESTC_BASIC_ERR;
+}
+
 const char* long_function() {
     static const struct timespec timer = {.tv_sec = 5};
     nanosleep(&timer, NULL);
@@ -32,13 +36,20 @@ static const test_t long_test = {
     .desc = "",
 };
 
+static const test_t default_fail = {
+    .ptr = default_fail_function,
+    .name = "default fail",
+    .desc = "",
+};
+
 extern int main() {
     const bool pass = execute_test(passing_test);
     const bool fail = execute_test(failing_test);
+    execute_test(default_fail);
     execute_test(long_test);
 
     if (!pass)
         printf("testc failed the test for the passing function\n");
     if (fail)
-        printf("testc failed the test for the failing function\n");
+        printf("testc passed the test for the failing function\n");
 }

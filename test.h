@@ -16,7 +16,10 @@
 #include <stdio.h>
 #include <time.h>
 
-#define TESTC_BASIC_ERR "Err @ ## __LINE__"
+// c macros are brilliant
+#define TESTC_BASIC_ERR__(v) #v
+#define TESTC_BASIC_ERR_(v) TESTC_BASIC_ERR__(v)
+#define TESTC_BASIC_ERR "Err @ " TESTC_BASIC_ERR_(__LINE__)
 
 typedef struct {
     const char* name;
