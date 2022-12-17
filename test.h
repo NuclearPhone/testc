@@ -16,7 +16,7 @@
 #include <stdio.h>
 #include <time.h>
 
-#define TESTC_BASIC_ERR "Err @ " __LINE__
+#define TESTC_BASIC_ERR "Err @ ## __LINE__"
 
 typedef struct {
     const char* name;
